@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mood Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <button class="menu-btn" onclick="toggleDrawer()" aria-label="menu"><span></span><span></span><span></span></button>
+      <span class="logo">Mood Clean</span>
+    </div>
+    <button class="api-btn" id="apiBtn" onclick="openApiModal()">API 연결</button>
+  </header>
+
+  <!-- Drawer -->
+  <div class="drawer-overlay" id="overlay" onclick="toggleDrawer()"></div>
+  <aside class="drawer" id="drawer">
+    <h3>Menu</h3>
+    <ul>
+      <li onclick="goPage('main'); toggleDrawer();">홈</li>
+      <li onclick="goPage('quiz'); toggleDrawer();">기분 체크</li>
+      <li onclick="goPage('upload'); toggleDrawer();">방 사진 업로드</li>
+      <li onclick="openHistory(); toggleDrawer();">나의 기록</li>
+      <li onclick="openTrend(); toggleDrawer();">레벨 추이 차트</li>
+      <li onclick="openApiModal(); toggleDrawer();">API 설정</li>
+      <li>도움말</li>
+    </ul>
+  </aside>
+
+  <!-- API Modal -->
+  <div class="modal-overlay" id="apiModal">
+    <div class="modal">
+      <h3>Anthropic API 연결</h3>
+      <p class="modal-desc">실제 AI 분석을 위해 Anthropic API 키를 입력하세요. 키는 브라우저 로컬에만 저장됩니다.</p>
+      <div class="api-status" id="apiStatus">연결되지 않음</div>
+      <div class="usage-box" id="usageBox">
+        <div class="usage-head">
+          <span class="usage-title">📊 누적 토큰 사용량</span>
+          <button class="usage-reset" onclick="resetUsage()">초기화</button>
+        </div>
+        <div class="usage-total"><span id="usageTotal">0</span> <small style="font-size:13px;color:#888;font-weight:400">tokens</small></div>
+        <div class="usage-cost">예상 비용: $<span id="usageCost">0.0000</span> USD</div>
+        <div class="usage-bar"><div class="usage-bar-fill" id="usageBarFill" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="usage-level" id="usageLevel">낮음</span>
+          <span style="font-size:10px;color:#aaa" id="usageRequests">요청 0회</span>
+        </div>
+        <div class="usage-detail">
+          <span>입력 <strong id="usageIn">0</strong></span>
+          <span>출력 <strong id="usageOut">0</strong></span>
+        </div>
+      </div>
+      <label>API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+      <small class="hint">키는 <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>에서 발급받을 수 있어요.</small>
+      <label>모델</label>
+      <select id="modelSelect">
+        <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 (기본 · 균형)</option>
+        <option value="claude-opus-4-7">Claude Opus 4.7 (가장 정확)</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5 (빠름)</option>
+      </select>
+      <div class="modal-actions">
+        <button class="cancel" onclick="closeApiModal()">취소</button>
+        <button class="clear" onclick="clearApiKey()">삭제</button>
+        <button class="save" onclick="saveApiKey()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page 1: Main -->
+  <section class="page active" id="page-main">
+    <div class="hero">
+      <div class="hero-icon">🌿</div>
+      <h1>Mood Clean</h1>
+      <p class="highlight">기분이 흐릴 땐, 방부터 정리해 볼까요?</p>
+      <p>어지러운 방은 마음을 더 무겁게 만들어요.<br/>오늘의 감정에 맞춰 가볍게 정리를 시작해 보세요.</p>
+      <button class="btn-primary" onclick="goPage('quiz')">시작하기</button>
+    </div>
+  </section>
+
+  <!-- Page 2: Quiz -->
+  <section class="page" id="page-quiz">
+    <h2 class="page-title">오늘의 컨디션은?</h2>
+    <p class="page-subtitle">4가지 질문에 답해주세요</p>
+    <div id="quiz-questions"></div>
+    <button class="btn-primary full-btn mt-24" onclick="calcLevel()">결과 확인</button>
+  </section>
+
+  <!-- Page 3: Result -->
+  <section class="page" id="page-result">
+    <h2 class="page-title">오늘의 정리 레벨</h2>
+    <p class="page-subtitle">기분 점수에 따라 측정되었어요</p>
+    <div class="level-display">
+      <div class="level-label">YOUR LEVEL</div>
+      <div class="level-num"><span id="levelNum">3</span><small>/5</small></div>
+      <div class="level-bars" id="levelBars"></div>
+      <div class="level-name" id="levelName">보통</div>
+    </div>
+    <div class="recommendation">
+      <h4>오늘의 추천 정리법</h4>
+      <p id="levelMsg">가벼운 마음으로 책상 위와 침대 정리부터 시작해 보세요.</p>
+    </div>
+    <button class="btn-primary full-btn" onclick="goPage('upload')">정리 하러가기</button>
+  </section>
+
+  <!-- Page 4: Upload -->
+  <section class="page" id="page-upload">
+    <h2 class="page-title">방 사진 업로드</h2>
+    <p class="page-subtitle">현재 방의 모습을 찍어 올려주세요</p>
+    <div id="uploadError"></div>
+    <label class="upload-area" id="uploadArea1" for="fileInput1">
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">
+        <strong>사진 업로드</strong>
+        클릭하여 사진을 선택하세요
+      </div>
+    </label>
+    <input type="file" id="fileInput1" accept="image/*" onchange="handleUpload(event, 1)" />
+    <button class="btn-primary full-btn" id="analyzeBtn" onclick="startAnalyze()" disabled>AI 분석 시작</button>
+  </section>
+
+  <!-- Page 5: Analyzing -->
+  <section class="page" id="page-analyzing">
+    <div class="analyzing">
+      <div class="spinner"></div>
+      <h3 id="analyzingTitle">AI가 방을 분석 중이에요</h3>
+      <p id="analyzingDesc">Claude AI가 사진을 살펴보고 있어요...</p>
+    </div>
+  </section>
+
+  <!-- Page 6: Diagnosis & Checklist -->
+  <section class="page" id="page-checklist">
+    <h2 class="page-title">AI 진단 결과</h2>
+    <p class="page-subtitle">레벨 <span id="diagLevel">3</span>에 맞춘 체크리스트예요</p>
+    <div class="diagnosis-box">
+      <h4>AI 진단</h4>
+      <p id="diagText">분석 결과를 불러오는 중입니다.</p>
+    </div>
+    <div class="checklist-progress">
+      <span class="progress-text"><span id="progressNum">0</span>/<span id="progressTotal">5</span> 완료</span>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div id="checklistItems"></div>
+    <button class="btn-primary full-btn mt-24" id="afterBtn" onclick="goPage('after-upload')" disabled>정리 후 사진 업로드</button>
+  </section>
+
+  <!-- Page 7: After Upload -->
+  <section class="page" id="page-after-upload">
+    <h2 class="page-title">정리 후 사진</h2>
+    <p class="page-subtitle">정리한 방을 다시 찍어 올려주세요</p>
+    <label class="upload-area" id="uploadArea2" for="fileInput2">
+      <div class="upload-icon">✨</div>
+      <div class="upload-text">
+        <strong>After 사진 업로드</strong>
+        정리된 방을 보여주세요
+      </div>
+    </label>
+    <input type="file" id="fileInput2" accept="image/*" onchange="handleUpload(event, 2)" />
+    <button class="btn-primary full-btn" id="compareBtn" onclick="startCompare()" disabled>AI 분석 후 비교</button>
+  </section>
+
+  <!-- Page 8: Analyzing 2 -->
+  <section class="page" id="page-analyzing2">
+    <div class="analyzing">
+      <div class="spinner"></div>
+      <h3>변화를 분석 중이에요</h3>
+      <p>AI가 전/후를 비교하고 있어요...</p>
+    </div>
+  </section>
+
+  <!-- Page 9: Compare -->
+  <section class="page" id="page-compare">
+    <div class="celebration" id="compareCelebration">
+      <div class="emoji" id="celebEmoji">🎉</div>
+      <h2 id="celebTitle">퀘스트 완료!</h2>
+      <p id="celebMsg">정말 멋져요!<br/>오늘의 작은 정리가 마음을 한결 가볍게 만들었어요.</p>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-item">
+        <div class="compare-label">BEFORE</div>
+        <div class="compare-img" id="beforeImg">사진</div>
+      </div>
+      <div class="compare-item">
+        <div class="compare-label">AFTER</div>
+        <div class="compare-img" id="afterImg">사진</div>
+      </div>
+    </div>
+    <div class="diagnosis-box">
+      <h4>AI 비교 분석</h4>
+      <p id="compareText">분석 결과를 불러오는 중입니다.</p>
+    </div>
+    <div id="compareSuccessActions">
+      <button class="btn-primary full-btn" onclick="resetAll()">처음으로</button>
+      <button class="btn-secondary full-btn mt-24" onclick="openHistory()">📚 나의 기록 보기</button>
+    </div>
+    <div id="compareRetryActions" style="display:none;">
+      <button class="btn-primary full-btn" onclick="retryClean()">다시 하러가기</button>
+      <button class="btn-secondary full-btn mt-24" onclick="resetAll()">처음으로</button>
+    </div>
+  </section>
+
+  <!-- Page 10: History List -->
+  <section class="page" id="page-history">
+    <h2 class="page-title">나의 정리 기록</h2>
+    <p class="page-subtitle">지금까지의 Mood Clean 여정이에요</p>
+    <div id="historyContent"></div>
+    <button class="btn-secondary full-btn mt-24" onclick="goPage('main')">홈으로</button>
+  </section>
+
+  <!-- Page 11: History Detail -->
+  <section class="page" id="page-history-detail">
+    <h2 class="page-title">기록 상세</h2>
+    <p class="page-subtitle" id="detailDate">-</p>
+
+    <div class="level-display">
+      <div class="level-label">LEVEL</div>
+      <div class="level-num"><span id="detailLevel">-</span><small>/5</small></div>
+      <div class="level-name" id="detailLevelName">-</div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-item">
+        <div class="compare-label">BEFORE</div>
+        <div class="history-detail-img" id="detailBefore">사진</div>
+      </div>
+      <div class="compare-item">
+        <div class="compare-label">AFTER</div>
+        <div class="history-detail-img" id="detailAfter">사진</div>
+      </div>
+    </div>
+
+    <div class="diagnosis-box mt-24">
+      <h4>AI 진단</h4>
+      <p id="detailDiag">-</p>
+    </div>
+
+    <div class="diagnosis-box">
+      <h4>AI 비교 분석</h4>
+      <p id="detailCompare">-</p>
+    </div>
+
+    <div class="checklist-progress">
+      <span class="progress-text">완료 <span id="detailDone">0</span>/<span id="detailTotal">0</span></span>
+      <div class="progress-bar"><div class="progress-fill" id="detailProgress"></div></div>
+    </div>
+
+    <div id="detailChecklist"></div>
+
+    <div class="history-actions">
+      <button class="btn-secondary" onclick="goPage('history')">← 목록으로</button>
+      <button class="history-delete-btn" onclick="deleteCurrentDetail()">삭제</button>
+    </div>
+  </section>
+
+  <!-- Page 12: Level Trend Chart -->
+  <section class="page" id="page-trend">
+    <h2 class="page-title">레벨 추이 차트</h2>
+    <p class="page-subtitle">기분과 행동에 따라 완성도가 어떻게 변했는지 확인해요</p>
+    <div id="trendContent"></div>
+    <button class="btn-secondary full-btn mt-24" onclick="openHistory()">← 기록으로</button>
+  </section>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
